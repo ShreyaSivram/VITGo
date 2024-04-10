@@ -1,0 +1,57 @@
+function distributeResponses() {
+  var ss = SpreadsheetApp.openByUrl('https://docs.google.com/spreadsheets/d/1_RvJMrMhbqQCTgNEDLONQKsamrkvZPLnXFdpItIA-S4/edit?usp=sharing');
+  var mainSheet = ss.getSheetByName("Overall"); // Change to the name of your main sheet
+  if (!mainSheet) {
+    Logger.log("Main sheet not found.");
+    return;
+  }
+
+  var routes = mainSheet.getRange("F2:F" + mainSheet.getLastRow()).getValues(); // Assuming routes are in column F
+  var processedResponses = {}; // Object to store processed responses
+
+  for (var i = 0; i < routes.length; i++) {
+    var route = routes[i][0];
+    if (!route) continue; // Skip empty routes
+
+    var routeSheet = ss.getSheetByName(route);
+
+    // If the sheet doesn't exist, create it
+    if (!routeSheet) {
+      routeSheet = ss.insertSheet(route);
+      routeSheet.appendRow(["Route", "Seat Number"].concat(mainSheet.getRange(1, 1, 1, mainSheet.getLastColumn() - 1).getValues()[0])); // Copy headers from main sheet
+    }
+
+    var lastRow = routeSheet.getLastRow();
+    if (lastRow > 0 && lastRow % 50 == 0) {
+      var sheetNumber = Math.floor(lastRow / 50) + 1; // Calculate sheet number
+      var sheetName = route + (sheetNumber > 1 ? "_" + (sheetNumber - 1) : ""); // Adjust sheet name if not the first sheet
+      routeSheet = ss.insertSheet(sheetName);
+      routeSheet.appendRow(["Route", "Seat Number"].concat(mainSheet.getRange(1, 1, 1, mainSheet.getLastColumn() - 1).getValues()[0])); // Copy headers from main sheet
+      lastRow = 0; // Reset lastRow for the new sheet
+    }
+
+    for (var j = 2; j <= mainSheet.getLastRow(); j++) { // Start from row 2 to skip headers
+      var currentRoute = mainSheet.getRange(j, 6).getValue(); // Assuming route is in column F
+      if (currentRoute != route) continue; // Skip responses not belonging to the current route
+
+      var responseId = mainSheet.getRange(j, 1).getValue(); // Assuming response ID is in column A
+      if (processedResponses[responseId]) continue; // Skip if response already processed
+      processedResponses[responseId] = true; // Mark response as processed
+
+      var seatNumber = (lastRow % 50) //+ 1; // Calculate seat number
+      if (seatNumber == 1 && lastRow != 0) { // If it's the first seat number of a new sheet
+        var sheetNumber = Math.floor(lastRow / 50) + 1; // Calculate sheet number
+        var sheetName = route + (sheetNumber > 1 ? "_" + (sheetNumber - 1) : ""); // Adjust sheet name if not the first sheet
+        routeSheet = ss.getSheetByName(sheetName); // Switch to the next sheet
+        if (!routeSheet) { // Create a new sheet if it doesn't exist
+          routeSheet = ss.insertSheet(sheetName);
+          routeSheet.appendRow(["Route", "Seat Number"].concat(mainSheet.getRange(1, 1, 1, mainSheet.getLastColumn() - 1).getValues()[0])); // Copy headers from main sheet
+        }
+        seatNumber = 1; // Reset seat number to 1 for the new sheet
+      }
+
+      routeSheet.appendRow([route, seatNumber].concat(mainSheet.getRange(j, 2, 1, mainSheet.getLastColumn() - 1).getValues()[0]));
+      lastRow++; // Increment lastRow after adding a new row
+    }
+  }
+}
